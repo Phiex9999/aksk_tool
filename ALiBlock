@@ -1,0 +1,134 @@
+#!/usr/bin/env python
+#coding=utf-8
+import json
+import re
+from time import time
+
+from aliyunsdkcore.client import AcsClient
+from aliyunsdkcore.request import CommonRequest
+
+
+class AliBookBlock():
+    def __init__(self,access_key,secret_key):
+        self.client = AcsClient(access_key, secret_key, 'cn-shenzhen')
+
+    def modifyAddressBook(self,bookGroup,addressList):
+        request = CommonRequest()
+        request.set_accept_format('json')
+        request.set_domain('cloudfw.aliyuncs.com')
+        request.set_method('POST')
+        request.set_protocol_type('https') # https | http
+        request.set_version('2017-12-07')
+        request.set_action_name('ModifyAddressBook')
+
+        request.add_query_param('Description', bookGroup['Description'])
+        request.add_query_param('GroupName', bookGroup['GroupName'])
+        request.add_query_param('GroupUuid', bookGroup['GroupUuid'])
+        request.add_query_param('AddressList', addressList)
+
+        response = self.client.do_action(request)
+        # python2:  print(response)
+        print(str(response, encoding = 'utf-8'))
+
+    def describeAddressBook(self,query):
+        """
+        ip地址簿查询
+        :param query: 查询条件
+        :return:
+        """
+
+        request = CommonRequest()
+        request.set_accept_format('json')
+        request.set_domain('cloudfw.aliyuncs.com')
+        request.set_method('POST')
+        request.set_protocol_type('https')  # https | http
+        request.set_version('2017-12-07')
+        request.set_action_name('DescribeAddressBook')
+        request.add_query_param('CurrentPage', "1")
+        request.add_query_param('PageSize', "50")
+        request.add_query_param('Query', query)
+
+        # response = client.do_action(request)
+        # # python2:  print(response)
+        # print(str(response, encoding='utf-8'))
+        response = self.client.do_action_with_exception(request)
+        s1 = json.loads(response)["Acls"][0]
+        return s1
+
+
+def ip_re(ipsrt):
+    """
+    匹配IP段是否有效
+    :param ipsrt:
+    :return: 匹配成功, 失败返回None
+    """
+    if '/' in ipsrt:
+        pattern = '^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}/([0-9]|[12][0-9]|3[012])$'
+        a = re.match(pattern, ipsrt)
+        if a:
+            return 1
+
+    else:
+        pattern = '^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$'
+        a = re.match(pattern, ipsrt)
+        if a:
+            return 2
+    return 3
+if __name__ == '__main__':
+    keys = [
+        {   # ZTE
+            # 下发ip：8.135.99.68
+            'access_key': 'LTKVq9fcvEoBjbcvENeYVWPq',
+            'secret_key': 'Abkp18vVt32Ff8rSsGN6LNbkpRgZbf'
+        },
+    ]
+    ip = ''
+    unseal_ip = ''
+    t1 = time()
+    # ip = '51.158.0.0/15'
+    unseal_ip = '51.158.122.136'
+    ips = ip.split(',')
+    unseal_ips = unseal_ip.split(',')
+    for key in keys:
+        ali_book = AliBookBlock(key['access_key'],key['secret_key'])
+
+        bookgrop = ali_book.describeAddressBook('black_ip')
+        resslist = bookgrop["AddressList"]
+        a = False
+        if ip:
+            for ip in ips:
+                ip = ip.strip()
+                is_ip = ip_re(ip)
+                if is_ip==2:
+                    ip = ip+'/32'
+                elif is_ip==3:
+                    print('格式输入错误')
+                if not ip in resslist:
+                    a=True
+                    resslist.append(ip)
+                else:
+                    a = True
+                    resslist.remove(ip)
+                    resslist.append(ip)
+        if unseal_ip:
+            for unseal_ip in unseal_ips:
+                unseal_ip = unseal_ip.strip()
+                is_ip = ip_re(unseal_ip)
+                print('0012', unseal_ip, is_ip)
+                if is_ip==2:
+                    unseal_ip = unseal_ip+'/32'
+                elif is_ip==3:
+                    print('格式输入错误')
+                if unseal_ip in resslist:
+                    a=True
+                    print(resslist)
+                    resslist.remove(unseal_ip)
+                    print(resslist)
+        if a:
+            length = len(resslist)
+            if length>1000:
+                resslist=resslist[length-1000:]
+            print(ali_book.modifyAddressBook(bookgrop,','.join(resslist)))
+        print(ali_book.describeAddressBook('black_ip'))
+    t2 = time()
+    print(t2-t1)
