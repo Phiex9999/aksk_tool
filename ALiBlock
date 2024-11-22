@@ -78,6 +78,7 @@ if __name__ == '__main__':
     keys = [
         {   # ZTE
             # 下发ip：8.135.99.68
+            # netops.zte.com.cn 8.135.112.116
             'access_key': 'LTKVq9fcvEoBjbcvENeYVWPq',
             'secret_key': 'Abkp18vVt32Ff8rSsGN6LNbkpRgZbf'
         },
